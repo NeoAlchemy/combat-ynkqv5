@@ -9,7 +9,7 @@ import './style.css';
 var canvas = <HTMLCanvasElement>document.getElementById('canvas');
 var ctx = canvas.getContext('2d');
 canvas.setAttribute('tabindex', '1');
-canvas.style.outline = 'none';
+canvas.style.outline = '4px solid #F39F54';
 canvas.focus();
 
 // utility functions to use everywhere
@@ -52,6 +52,28 @@ class GameObject {
   render() {}
 }
 
+class Group {
+  public x: number;
+  public y: number;
+  public children: Array<GameObject>;
+
+  constructor() {
+    this.children = [];
+  }
+
+  update() {
+    for (let gameObject of this.children) {
+      if (gameObject) gameObject.update();
+    }
+  }
+
+  render() {
+    for (let gameObject of this.children) {
+      if (gameObject) gameObject.render();
+    }
+  }
+}
+
 class Physics {
   private gameObjectCollisionRegister: Array<any> = [];
   private wallCollisionRegister: Array<any> = [];
@@ -62,17 +84,40 @@ class Physics {
 
   onCollide(
     objectA: GameObject,
+    objectB: Group,
+    callback: Function,
+    scope: any
+  ): void;
+  onCollide(
+    objectA: GameObject,
     objectB: GameObject,
     callback: Function,
     scope: any
-  ) {
+  ): void;
+  onCollide(
+    objectA: GameObject,
+    objectB: GameObject | Group,
+    callback: Function,
+    scope: any
+  ): void {
     if (objectA && objectB) {
-      this.gameObjectCollisionRegister.push({
-        objectA: objectA,
-        objectB: objectB,
-        callback: callback,
-        scope: scope,
-      });
+      if ('children' in objectB) {
+        for (let gameObject of objectB.children) {
+          this.gameObjectCollisionRegister.push({
+            objectA: objectA,
+            objectB: gameObject,
+            callback: callback,
+            scope: scope,
+          });
+        }
+      } else {
+        this.gameObjectCollisionRegister.push({
+          objectA: objectA,
+          objectB: objectB,
+          callback: callback,
+          scope: scope,
+        });
+      }
     }
   }
 
@@ -104,7 +149,10 @@ class Physics {
         collisionEntry.objectA.y <=
           collisionEntry.objectB.y + collisionEntry.objectB.height
       ) {
-        collisionEntry.callback.bind(collisionEntry.scope).apply();
+        collisionEntry.callback.apply(collisionEntry.scope, [
+          collisionEntry.objectA,
+          collisionEntry.objectB,
+        ]);
       }
     }
     for (let wallCollisionEntry of this.wallCollisionRegister) {
@@ -121,23 +169,37 @@ class Physics {
 }
 
 class Scene {
-  public children: Array<any>;
+  public children: Array<GameObject>;
+  public groups: Array<Group>;
   public physics: Physics;
 
   constructor() {
     this.children = [];
+    this.groups = [];
     this.physics = new Physics();
   }
 
-  add(gameObject: GameObject) {
-    this.children.push(gameObject);
+  add(object: Group): void;
+  add(object: GameObject): void;
+  add(object: GameObject | Group): void {
+    if ('children' in object) {
+      for (let gameObject of object.children) {
+        this.children.push(gameObject);
+      }
+      this.groups.push(object);
+    } else {
+      this.children.push(object);
+    }
   }
 
   create() {}
 
   update() {
     for (let gameObject of this.children) {
-      gameObject.update();
+      if (gameObject) gameObject.update();
+    }
+    for (let group of this.groups) {
+      if (group) group.update();
     }
     this.physics.update();
   }
@@ -149,7 +211,10 @@ class Scene {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     for (let gameObject of this.children) {
-      gameObject.render();
+      if (gameObject) gameObject.render();
+    }
+    for (let group of this.groups) {
+      if (group) group.render();
     }
   }
 }
@@ -185,11 +250,12 @@ class Game {
 /* -------------------------------------------------------------------------- */
 
 /* ------------------------------ GAME MECHANICS ---------------------------- */
-const COLOR_BACKGROUND: string = '#000';
+const COLOR_BACKGROUND: string = '#B2BF50';
 const COLOR_LEFT_LASER = '#124AE0';
 const COLOR_RIGHT_LASER = '#E01212';
-const COLOR_WALL = '#FFF';
-const COLOR_SCORE = '#FFF';
+const COLOR_WALL = '#F39F54';
+const COLOR_LEFT_SCORE = '#124AE0';
+const COLOR_RIGHT_SCORE = '#E01212';
 const LASER_WIDTH = 3;
 const LASER_LENGTH = 3;
 const LASER_SPEED = 1; //smaller is faster
@@ -201,7 +267,10 @@ class Tank extends GameObject {
   public tankSize: number = 32;
   public laser: Laser;
   private tank: string;
+  private stop: number = 1;
   private rotateDegrees: number;
+  public prevX: number;
+  public prevY: number;
   private blueTank =
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAGdJREFUWEdjZEADQl4P/qOLUYP/bpsCIzZzMARHHTAaAgMeAoRSPLEOxJXq0c3HmjXwOWLUAaMhMBoCQyYECJUnMHmalQOjDhjwEBitC0ZDYDQEhm4IEFvZEFvQwNSN9oxGQ2DQhgAAHz15DYWEygkAAAAASUVORK5CYII=';
 
@@ -233,12 +302,16 @@ class Tank extends GameObject {
 
     if (this.command == 'DOWN') {
       var angleRad = this.rotateDegrees * (Math.PI / 180); //angle in radians
-      this.x = this.x - TANK_SPEED * Math.cos(angleRad);
-      this.y = this.y - TANK_SPEED * Math.sin(angleRad);
+      this.prevX = this.x;
+      this.prevY = this.y;
+      this.x = this.x - TANK_SPEED * Math.cos(angleRad) * this.stop;
+      this.y = this.y - TANK_SPEED * Math.sin(angleRad) * this.stop;
     } else if (this.command == 'UP') {
       var angleRad = this.rotateDegrees * (Math.PI / 180); //angle in radians
-      this.x = this.x + TANK_SPEED * Math.cos(angleRad);
-      this.y = this.y + TANK_SPEED * Math.sin(angleRad);
+      this.prevX = this.x;
+      this.prevY = this.y;
+      this.x = this.x + TANK_SPEED * Math.cos(angleRad) * this.stop;
+      this.y = this.y + TANK_SPEED * Math.sin(angleRad) * this.stop;
     } else if (this.command == 'LEFT') {
       this.rotateDegrees -= 30;
       if (this.rotateDegrees == 360) {
@@ -254,6 +327,7 @@ class Tank extends GameObject {
     }
 
     this.laser.update();
+    this.stop = 1;
   }
 
   render() {
@@ -287,10 +361,14 @@ class Tank extends GameObject {
       this.rotateDegrees
     );
   }
+
+  stopMoving() {
+    this.stop = 0;
+  }
 }
 
 class Laser extends GameObject {
-  public x: number = 0;
+  public x: number = -LASER_LENGTH;
   public y: number = -LASER_LENGTH; //not visible
   private dx: number;
   private dy: number;
@@ -305,8 +383,6 @@ class Laser extends GameObject {
     } else {
       this.color = COLOR_RIGHT_LASER;
     }
-    this.x = 0;
-    this.y = 0;
     this.width = LASER_WIDTH;
     this.height = LASER_LENGTH;
   }
@@ -356,9 +432,13 @@ class Laser extends GameObject {
   }
 }
 
-class Walls extends GameObject {
-  constructor() {
+class Wall extends GameObject {
+  constructor(x: number, y: number, width: number, height: number) {
     super();
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
   }
 
   update() {
@@ -369,8 +449,32 @@ class Walls extends GameObject {
     super.render();
 
     ctx.fillStyle = COLOR_WALL;
-    ctx.fillRect(100, 150, 10, 100);
-    ctx.fillRect(300, 150, 10, 100);
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+  }
+}
+
+class Walls extends Group {
+  constructor() {
+    super();
+    this.children.push(new Wall(100, 150, 10, 100));
+    this.children.push(new Wall(80, 150, 20, 10));
+    this.children.push(new Wall(80, 240, 20, 10));
+    this.children.push(new Wall(300, 150, 10, 100));
+    this.children.push(new Wall(300, 150, 30, 10));
+    this.children.push(new Wall(300, 250, 30, 10));
+
+    this.children.push(new Wall(190, 190, 30, 30));
+
+    this.children.push(new Wall(150, 100, 100, 10));
+    this.children.push(new Wall(150, 300, 100, 10));
+  }
+
+  update() {
+    super.update();
+  }
+
+  render() {
+    super.render();
   }
 }
 
@@ -391,9 +495,11 @@ class Score extends GameObject {
 
     let leftPosition = canvas.width / 8;
     let rightPosition = canvas.width - canvas.width / 4;
-    ctx.fillStyle = COLOR_SCORE;
+
     ctx.font = '48px Verdana';
+    ctx.fillStyle = COLOR_LEFT_SCORE;
     ctx.fillText(String(this.leftScore), leftPosition, 50);
+    ctx.fillStyle = COLOR_RIGHT_SCORE;
     ctx.fillText(String(this.rightScore), rightPosition, 50);
   }
 
@@ -507,6 +613,34 @@ class MainLevel extends Scene {
       this.onTankOneHit,
       this
     );
+
+    this.physics.onCollide(
+      this.playerOneTank.laser,
+      this.walls,
+      this.onPlayerOneLaserHitWall,
+      this
+    );
+
+    this.physics.onCollide(
+      this.playerTwoTank.laser,
+      this.walls,
+      this.onPlayerTwoLaserHitWall,
+      this
+    );
+
+    this.physics.onCollide(
+      this.playerOneTank,
+      this.walls,
+      this.onPlayerOneHitWall,
+      this
+    );
+
+    this.physics.onCollide(
+      this.playerTwoTank,
+      this.walls,
+      this.onPlayerTwoHitWall,
+      this
+    );
   }
 
   update() {
@@ -525,6 +659,26 @@ class MainLevel extends Scene {
   onTankTwoHit() {
     this.playerTwoTank.laser.reset();
     this.score.incrementLeft();
+  }
+
+  onPlayerOneLaserHitWall() {
+    this.playerOneTank.laser.reset();
+  }
+
+  onPlayerTwoLaserHitWall() {
+    this.playerTwoTank.laser.reset();
+  }
+
+  onPlayerOneHitWall() {
+    this.playerOneTank.stopMoving();
+    this.playerOneTank.x = this.playerOneTank.prevX;
+    this.playerOneTank.y = this.playerOneTank.prevY;
+  }
+
+  onPlayerTwoHitWall() {
+    this.playerTwoTank.stopMoving();
+    this.playerTwoTank.x = this.playerTwoTank.prevX;
+    this.playerTwoTank.y = this.playerTwoTank.prevY;
   }
 }
 
