@@ -142,12 +142,14 @@ class Physics {
         collisionEntry.objectB.x < canvas.width &&
         collisionEntry.objectB.y > 0 &&
         collisionEntry.objectB.y < canvas.height &&
-        collisionEntry.objectA.x >= collisionEntry.objectB.x &&
-        collisionEntry.objectA.x <=
+        collisionEntry.objectA.x <
           collisionEntry.objectB.x + collisionEntry.objectB.width &&
-        collisionEntry.objectA.y >= collisionEntry.objectB.y &&
-        collisionEntry.objectA.y <=
-          collisionEntry.objectB.y + collisionEntry.objectB.height
+        collisionEntry.objectA.x + collisionEntry.objectA.width >
+          collisionEntry.objectB.x &&
+        collisionEntry.objectA.y <
+          collisionEntry.objectB.y + collisionEntry.objectB.height &&
+        collisionEntry.objectA.y + collisionEntry.objectA.height >
+          collisionEntry.objectB.y
       ) {
         collisionEntry.callback.apply(collisionEntry.scope, [
           collisionEntry.objectA,
@@ -157,10 +159,12 @@ class Physics {
     }
     for (let wallCollisionEntry of this.wallCollisionRegister) {
       if (
-        wallCollisionEntry.objectA.y < wallCollisionEntry.objectA.height ||
-        wallCollisionEntry.objectA.y > canvas.height ||
-        wallCollisionEntry.objectA.x < wallCollisionEntry.objectA.width ||
-        wallCollisionEntry.objectA.x > canvas.width
+        wallCollisionEntry.objectA.y < 0 ||
+        wallCollisionEntry.objectA.y + wallCollisionEntry.objectA.height >
+          canvas.height ||
+        wallCollisionEntry.objectA.x < 0 ||
+        wallCollisionEntry.objectA.x + wallCollisionEntry.objectA.width >=
+          canvas.width
       ) {
         wallCollisionEntry.callback.bind(wallCollisionEntry.scope).apply();
       }
@@ -283,14 +287,14 @@ class Tank extends GameObject {
       this.laser = new Laser(_position);
       this.tank = this.blueTank;
       this.y = canvas.height - canvas.height / 2;
-      this.x = 0;
+      this.x = 10;
       this.rotateDegrees = 0;
     } else {
       super(new RightTankController());
       this.laser = new Laser(_position);
       this.tank = this.redTank;
       this.y = canvas.height - canvas.height / 2;
-      this.x = canvas.width - this.tankSize;
+      this.x = canvas.width - this.tankSize - 10;
       this.rotateDegrees = 180;
     }
     this.width = this.tankSize;
@@ -641,6 +645,25 @@ class MainLevel extends Scene {
       this.onPlayerTwoHitWall,
       this
     );
+
+    this.physics.onCollide(
+      this.playerOneTank,
+      this.playerTwoTank,
+      this.onPlayerHitWall,
+      this
+    );
+
+    this.physics.onCollideWalls(
+      this.playerOneTank,
+      this.onPlayerOneHitWall,
+      this
+    );
+
+    this.physics.onCollideWalls(
+      this.playerTwoTank,
+      this.onPlayerTwoHitWall,
+      this
+    );
   }
 
   update() {
@@ -676,6 +699,15 @@ class MainLevel extends Scene {
   }
 
   onPlayerTwoHitWall() {
+    this.playerTwoTank.stopMoving();
+    this.playerTwoTank.x = this.playerTwoTank.prevX;
+    this.playerTwoTank.y = this.playerTwoTank.prevY;
+  }
+
+  onPlayerHitWall() {
+    this.playerOneTank.stopMoving();
+    this.playerOneTank.x = this.playerOneTank.prevX;
+    this.playerOneTank.y = this.playerOneTank.prevY;
     this.playerTwoTank.stopMoving();
     this.playerTwoTank.x = this.playerTwoTank.prevX;
     this.playerTwoTank.y = this.playerTwoTank.prevY;
