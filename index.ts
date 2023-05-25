@@ -719,3 +719,9 @@ class MainLevel extends Scene {
 /* -------------------------------------------------------------------------- */
 let mainLevel = new MainLevel();
 let game = new Game(mainLevel);
+
+/**
+BUGS
+
+- the bullet fired once gives person 8 points, not 1
+ */
