@@ -28,3 +28,38 @@ canvas {
   right: 0;
   left: 0;
 }
+
+.arcade-button {
+  background-color: #007bff; /* Arcade blue color */
+  border: 5px solid #000; /* Black border for contrast */
+  border-radius: 50%; /* Circular button */
+  box-shadow: inset -5px -5px 15px rgba(255, 255, 255, 0.5),
+    /* Glossy top inner shadow */ inset 5px 5px 15px rgba(0, 0, 0, 0.5),
+    /* Dark bottom inner shadow */ 0px 10px 0px #000; /* External shadow for depth */
+  width: 100px; /* Set to 100px width */
+  height: 100px; /* Set to 100px height */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-family: 'Press Start 2P', cursive; /* Retro arcade font */
+  font-size: 12px; /* Adjust font size to fit */
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.1s ease-in-out;
+
+  position: fixed; /* Fixed position relative to the viewport */
+  bottom: 5%; /* Positioned 10% from the bottom */
+  left: 50%; /* Center horizontally */
+  transform: translateX(-50%); /* Adjust for center alignment */
+}
+
+.arcade-button:active {
+  box-shadow: inset -5px -5px 15px rgba(255, 255, 255, 0.3),
+    inset 5px 5px 15px rgba(0, 0, 0, 0.7), 0px 5px 0px #000; /* Push-down effect */
+  transform: translateX(-50%) translateY(5px); /* Button moves down when pressed */
+}
+
+.arcade-button:hover {
+  background-color: #339aff; /* Lighter arcade blue on hover */
+}

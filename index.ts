@@ -627,6 +627,12 @@ class LeftTankController extends InputController {
       },
       false
     );
+
+    const button = document.getElementById('arcadeButton');
+
+    button.addEventListener('click', (evt) => {
+      this.command = 'FIRE';
+    });
   }
 
   update(gameObject: GameObject) {
