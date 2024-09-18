@@ -1,3 +1,5 @@
+import * as nipplejs from 'nipplejs';
+
 // Import stylesheets
 import './style.css';
 
@@ -551,9 +553,62 @@ class RightTankController extends InputController {
 
 class LeftTankController extends InputController {
   private command: string;
+  private turretIntervalId: number;
+  private movementIntervalId: number;
 
   constructor() {
     super();
+
+    let TIME_INTERVAL = 300;
+
+    var turretOptions: any = {
+      position: { top: '90%', left: '25%' },
+      mode: 'static',
+      color: 'blue',
+      lockX: true,
+      zone: document.getElementById('zone1'),
+    };
+    var turretManager = nipplejs.create(turretOptions);
+
+    var movementOptions: any = {
+      position: { top: '90%', left: '75%' },
+      mode: 'static',
+      color: 'blue',
+      lockY: true,
+      zone: document.getElementById('zone2'),
+    };
+    var movementManager = nipplejs.create(movementOptions);
+
+    movementManager.on('dir:down', () => {
+      clearInterval(this.movementIntervalId);
+      this.movementIntervalId = setInterval(() => {
+        this.command = 'DOWN';
+      }, TIME_INTERVAL);
+    });
+    movementManager.on('dir:up', () => {
+      clearInterval(this.movementIntervalId);
+      this.movementIntervalId = setInterval(() => {
+        this.command = 'UP';
+      }, TIME_INTERVAL);
+    });
+    movementManager.on('end', () => {
+      clearInterval(this.movementIntervalId);
+    });
+    turretManager.on('dir:left', () => {
+      clearInterval(this.turretIntervalId);
+      this.turretIntervalId = setInterval(() => {
+        this.command = 'LEFT';
+      }, TIME_INTERVAL);
+    });
+    turretManager.on('dir:right', () => {
+      clearInterval(this.turretIntervalId);
+      this.turretIntervalId = setInterval(() => {
+        this.command = 'RIGHT';
+      }, TIME_INTERVAL);
+    });
+    turretManager.on('end', () => {
+      clearInterval(this.turretIntervalId);
+    });
 
     document.addEventListener(
       'keydown',
